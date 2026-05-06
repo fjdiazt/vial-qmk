@@ -4,6 +4,26 @@
 #include QMK_KEYBOARD_H
 #include "qmk_settings.h"
 
+const rgblight_segment_t PROGMEM layer_1_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_GREEN});
+const rgblight_segment_t PROGMEM layer_2_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_PURPLE});
+const rgblight_segment_t PROGMEM layer_3_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_CYAN});
+const rgblight_segment_t PROGMEM layer_4_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_YELLOW});
+const rgblight_segment_t PROGMEM layer_5_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_BLUE});
+const rgblight_segment_t PROGMEM layer_6_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_ORANGE});
+const rgblight_segment_t PROGMEM layer_7_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_MAGENTA});
+const rgblight_segment_t PROGMEM caps_lock_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_RED});
+
+const rgblight_segment_t *const PROGMEM rgb_layers[] = RGBLIGHT_LAYERS_LIST(
+    layer_1_led,
+    layer_2_led,
+    layer_3_led,
+    layer_4_led,
+    layer_5_led,
+    layer_6_led,
+    layer_7_led,
+    caps_lock_led
+);
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
     [0] = LAYOUT(
@@ -91,4 +111,47 @@ bool get_chordal_hold(uint16_t tap_hold_keycode, keyrecord_t *tap_hold_record, u
     }
 
     return get_chordal_hold_default(tap_hold_record, other_record);
+}
+
+void keyboard_post_init_user(void) {
+    rgblight_layers = rgb_layers;
+    rgblight_enable_noeeprom();
+    rgblight_sethsv_noeeprom(HSV_OFF);
+}
+
+bool led_update_user(led_t led_state) {
+    rgblight_set_layer_state(7, led_state.caps_lock);
+    return true;
+}
+
+layer_state_t layer_state_set_user(layer_state_t state) {
+    for (uint8_t i = 0; i < 7; i++) {
+        rgblight_set_layer_state(i, false);
+    }
+
+    switch (get_highest_layer(state)) {
+        case 1:
+            rgblight_set_layer_state(0, true);
+            break;
+        case 2:
+            rgblight_set_layer_state(1, true);
+            break;
+        case 3:
+            rgblight_set_layer_state(2, true);
+            break;
+        case 4:
+            rgblight_set_layer_state(3, true);
+            break;
+        case 5:
+            rgblight_set_layer_state(4, true);
+            break;
+        case 6:
+            rgblight_set_layer_state(5, true);
+            break;
+        case 7:
+            rgblight_set_layer_state(6, true);
+            break;
+    }
+
+    return state;
 }
