@@ -4,14 +4,14 @@
 #include QMK_KEYBOARD_H
 #include "qmk_settings.h"
 
-const rgblight_segment_t PROGMEM layer_1_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_GREEN});
-const rgblight_segment_t PROGMEM layer_2_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_PURPLE});
-const rgblight_segment_t PROGMEM layer_3_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_CYAN});
-const rgblight_segment_t PROGMEM layer_4_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_YELLOW});
-const rgblight_segment_t PROGMEM layer_5_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_BLUE});
-const rgblight_segment_t PROGMEM layer_6_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_ORANGE});
-const rgblight_segment_t PROGMEM layer_7_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_MAGENTA});
-const rgblight_segment_t PROGMEM caps_lock_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_RED});
+const rgblight_segment_t PROGMEM layer_1_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 85, 255, 80});
+const rgblight_segment_t PROGMEM layer_2_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 191, 255, 80});
+const rgblight_segment_t PROGMEM layer_3_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 128, 255, 80});
+const rgblight_segment_t PROGMEM layer_4_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 43, 255, 80});
+const rgblight_segment_t PROGMEM layer_5_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 170, 255, 80});
+const rgblight_segment_t PROGMEM layer_6_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 21, 255, 80});
+const rgblight_segment_t PROGMEM layer_7_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 213, 255, 80});
+const rgblight_segment_t PROGMEM caps_lock_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 0, 255, 100});
 
 const rgblight_segment_t *const PROGMEM rgb_layers[] = RGBLIGHT_LAYERS_LIST(
     layer_1_led,
@@ -42,16 +42,12 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     )
 };
 
-static bool is_home_row_mod_tap_key(uint16_t keycode) {
+static bool is_home_row_flow_tap_disabled_key(uint16_t keycode) {
     switch (get_tap_keycode(keycode)) {
-        case KC_A:
-        case KC_S:
         case KC_D:
         case KC_F:
         case KC_J:
         case KC_K:
-        case KC_L:
-        case KC_SCLN:
             return true;
     }
 
@@ -80,7 +76,7 @@ static bool is_thumb_key_position(keyrecord_t *record) {
 }
 
 uint16_t get_flow_tap_term(uint16_t keycode, keyrecord_t *record, uint16_t prev_keycode) {
-    if (is_home_row_mod_tap_key(keycode)) {
+    if (is_home_row_flow_tap_disabled_key(keycode)) {
         return 0;
     }
 
