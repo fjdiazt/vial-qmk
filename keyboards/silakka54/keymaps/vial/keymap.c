@@ -4,14 +4,32 @@
 #include QMK_KEYBOARD_H
 #include "qmk_settings.h"
 
-const rgblight_segment_t PROGMEM layer_1_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_GREEN});
-const rgblight_segment_t PROGMEM layer_2_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_PURPLE});
-const rgblight_segment_t PROGMEM layer_3_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_CYAN});
-const rgblight_segment_t PROGMEM layer_4_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_YELLOW});
-const rgblight_segment_t PROGMEM layer_5_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_BLUE});
-const rgblight_segment_t PROGMEM layer_6_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_ORANGE});
-const rgblight_segment_t PROGMEM layer_7_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_MAGENTA});
-const rgblight_segment_t PROGMEM caps_lock_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, HSV_RED});
+#if SILAKKA54_KEYPRESS_LED_FEEDBACK
+#    define CAPS_LOCK_LED_LAYER 11
+#    define KEYPRESS_LED_FIRST_LAYER 7
+#else
+#    define CAPS_LOCK_LED_LAYER 7
+#endif
+
+enum custom_keycodes {
+    LYRLED = QK_KB_0,
+    TYPLED
+};
+
+const rgblight_segment_t PROGMEM layer_1_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 85, 255, 80});
+const rgblight_segment_t PROGMEM layer_2_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 191, 255, 80});
+const rgblight_segment_t PROGMEM layer_3_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 128, 255, 80});
+const rgblight_segment_t PROGMEM layer_4_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 43, 255, 80});
+const rgblight_segment_t PROGMEM layer_5_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 170, 255, 80});
+const rgblight_segment_t PROGMEM layer_6_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 21, 255, 80});
+const rgblight_segment_t PROGMEM layer_7_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 213, 255, 80});
+#if SILAKKA54_KEYPRESS_LED_FEEDBACK
+const rgblight_segment_t PROGMEM keypress_1_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 234, 128, 70});
+const rgblight_segment_t PROGMEM keypress_2_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 64, 255, 70});
+const rgblight_segment_t PROGMEM keypress_3_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 132, 102, 70});
+const rgblight_segment_t PROGMEM keypress_4_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 11, 176, 70});
+#endif
+const rgblight_segment_t PROGMEM caps_lock_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 0, 255, 100});
 
 const rgblight_segment_t *const PROGMEM rgb_layers[] = RGBLIGHT_LAYERS_LIST(
     layer_1_led,
@@ -21,8 +39,20 @@ const rgblight_segment_t *const PROGMEM rgb_layers[] = RGBLIGHT_LAYERS_LIST(
     layer_5_led,
     layer_6_led,
     layer_7_led,
+#if SILAKKA54_KEYPRESS_LED_FEEDBACK
+    keypress_1_led,
+    keypress_2_led,
+    keypress_3_led,
+    keypress_4_led,
+#endif
     caps_lock_led
 );
+
+#if SILAKKA54_KEYPRESS_LED_FEEDBACK
+static uint8_t keypress_feedback_seed;
+#endif
+static bool layer_indicator_enabled = true;
+static bool keypress_feedback_enabled = true;
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -42,16 +72,12 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     )
 };
 
-static bool is_home_row_mod_tap_key(uint16_t keycode) {
+static bool is_home_row_flow_tap_disabled_key(uint16_t keycode) {
     switch (get_tap_keycode(keycode)) {
-        case KC_A:
-        case KC_S:
         case KC_D:
         case KC_F:
         case KC_J:
         case KC_K:
-        case KC_L:
-        case KC_SCLN:
             return true;
     }
 
@@ -80,7 +106,7 @@ static bool is_thumb_key_position(keyrecord_t *record) {
 }
 
 uint16_t get_flow_tap_term(uint16_t keycode, keyrecord_t *record, uint16_t prev_keycode) {
-    if (is_home_row_mod_tap_key(keycode)) {
+    if (is_home_row_flow_tap_disabled_key(keycode)) {
         return 0;
     }
 
@@ -113,6 +139,18 @@ bool get_chordal_hold(uint16_t tap_hold_keycode, keyrecord_t *tap_hold_record, u
     return get_chordal_hold_default(tap_hold_record, other_record);
 }
 
+bool get_permissive_hold(uint16_t keycode, keyrecord_t *record) {
+    if (is_home_row_flow_tap_disabled_key(keycode)) {
+        return true;
+    }
+
+#ifdef QMK_SETTINGS
+    return QS_tapping_permissive_hold;
+#else
+    return false;
+#endif
+}
+
 void keyboard_post_init_user(void) {
     rgblight_layers = rgb_layers;
     rgblight_enable_noeeprom();
@@ -120,13 +158,50 @@ void keyboard_post_init_user(void) {
 }
 
 bool led_update_user(led_t led_state) {
-    rgblight_set_layer_state(7, led_state.caps_lock);
+    rgblight_set_layer_state(CAPS_LOCK_LED_LAYER, led_state.caps_lock);
+    return true;
+}
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case LYRLED:
+            if (record->event.pressed) {
+                layer_indicator_enabled = !layer_indicator_enabled;
+                layer_state_set_user(layer_state);
+            }
+            return false;
+        case TYPLED:
+#if SILAKKA54_KEYPRESS_LED_FEEDBACK
+            if (record->event.pressed) {
+                keypress_feedback_enabled = !keypress_feedback_enabled;
+                rgblight_unblink_all_but_layer(CAPS_LOCK_LED_LAYER);
+            }
+#endif
+            return false;
+    }
+
+#if SILAKKA54_KEYPRESS_LED_FEEDBACK
+    if (record->event.pressed) {
+        if (!keypress_feedback_enabled) {
+            return true;
+        }
+
+        keypress_feedback_seed = (keypress_feedback_seed * 17) + (uint8_t)timer_read() + (uint8_t)keycode;
+        rgblight_unblink_all_but_layer(CAPS_LOCK_LED_LAYER);
+        rgblight_blink_layer(KEYPRESS_LED_FIRST_LAYER + (keypress_feedback_seed & 0x03), 60);
+    }
+#endif
+
     return true;
 }
 
 layer_state_t layer_state_set_user(layer_state_t state) {
     for (uint8_t i = 0; i < 7; i++) {
         rgblight_set_layer_state(i, false);
+    }
+
+    if (!layer_indicator_enabled) {
+        return state;
     }
 
     switch (get_highest_layer(state)) {

@@ -1,3 +1,127 @@
+# fjdiazt Silakka54 Vial fork notes
+
+This fork currently carries custom Silakka54/Vial firmware changes for an RP2040-Zero Silakka54 build with the USB cable plugged into the right half (`MASTER_RIGHT`).
+
+## What changed
+
+- Added a one-pixel WS2812/RGBLIGHT LED indicator on `GP16` for the Silakka54 Vial keymap.
+- Added per-layer LED colors for layers 1-7.
+- Added caps-lock LED indication.
+- Added optional typing/key-press LED feedback that blinks a pseudo-random color on each keypress.
+- Added two Vial custom keycodes so the LED behaviors can be toggled from the keyboard after flashing.
+- Customized tap-hold behavior for home-row mods.
+- Restored 8 dynamic Vial layers for this keymap.
+- Added `Miryoku Custom.vil` under `keyboards/silakka54/layouts/` as the working exported layout/profile.
+
+LED support was adapted from EloyEMC's Silakka54 RP2040-Zero LED indicator work: <https://github.com/EloyEMC/Multi-color-LED-indicator-for-Silakka54-with-RP2040-Zero>.
+
+## LED hardware and build flags
+
+Configured in `keyboards/silakka54/keymaps/vial/config.h`:
+
+```c
+#define RGBLIGHT_LED_COUNT 1
+#define WS2812_DI_PIN GP16
+#define RGBLIGHT_LAYERS
+```
+
+Typing feedback is build-time gated:
+
+```c
+#define SILAKKA54_KEYPRESS_LED_FEEDBACK 1
+```
+
+Set that to `0` before building to compile out the per-keypress blink feature. When enabled, the keymap also enables:
+
+```c
+#define RGBLIGHT_LAYER_BLINK
+#define RGBLIGHT_MAX_LAYERS 12
+```
+
+## LED colors
+
+Configured in `keyboards/silakka54/keymaps/vial/keymap.c` using `RGBLIGHT_LAYER_SEGMENTS({start, count, hue, sat, val})`.
+
+Layer colors:
+
+| Layer | Color | HSV segment |
+| --- | --- | --- |
+| 1 | green | `{0, 1, 85, 255, 80}` |
+| 2 | purple | `{0, 1, 191, 255, 80}` |
+| 3 | cyan | `{0, 1, 128, 255, 80}` |
+| 4 | yellow | `{0, 1, 43, 255, 80}` |
+| 5 | blue | `{0, 1, 170, 255, 80}` |
+| 6 | orange | `{0, 1, 21, 255, 80}` |
+| 7 | magenta | `{0, 1, 213, 255, 80}` |
+| Caps Lock | red | `{0, 1, 0, 255, 100}` |
+
+Typing feedback colors are intentionally separate from the reserved layer colors:
+
+| Feedback slot | HSV segment |
+| --- | --- |
+| 1 | `{0, 1, 234, 128, 70}` |
+| 2 | `{0, 1, 64, 255, 70}` |
+| 3 | `{0, 1, 132, 102, 70}` |
+| 4 | `{0, 1, 11, 176, 70}` |
+
+Typing feedback blinks for 60 ms and picks one of the 4 feedback colors using a small timer/keycode-based pseudo-random seed. It is meant as fun visual feedback, not accurate typing analytics.
+
+## Vial custom keycodes
+
+Declared in `keyboards/silakka54/keymaps/vial/keymap.c` and exposed in `keyboards/silakka54/keymaps/vial/vial.json`:
+
+| Keycode | Vial name | Behavior |
+| --- | --- | --- |
+| `LYRLED` | Toggle Layer LED | Turns layer indicator LEDs on/off at runtime. |
+| `TYPLED` | Toggle Typing LED | Turns per-keypress typing feedback on/off at runtime. |
+
+Both toggles currently default to on after boot. They are runtime toggles only and are not persisted to EEPROM.
+
+## Tap-hold behavior
+
+Configured in `keyboards/silakka54/keymaps/vial/keymap.c`, with one weak-hook support change in `quantum/qmk_settings.c`.
+
+- `get_flow_tap_term()` disables Flow Tap for the Ctrl/Shift home-row mod tap keys: `D`, `F`, `J`, `K`.
+- `A`, `S`, `L`, and `;` use the global Vial/QMK Settings Flow Tap value.
+- `get_permissive_hold()` forces permissive hold on for `D`, `F`, `J`, `K`, even when the global Vial setting is off.
+- `get_chordal_hold()` respects the global Vial Chordal Hold setting, but if enabled it bypasses Chordal Hold for thumb-key positions and the Ctrl home-row tap keys `D` and `K`.
+- `quantum/qmk_settings.c` marks the QMK Settings `get_permissive_hold()`, `get_chordal_hold()`, and `get_flow_tap_term()` hooks as weak so this keymap can override them while still using Vial QMK Settings.
+
+## Current layout assumptions
+
+The exported profile lives at:
+
+```text
+keyboards/silakka54/layouts/Miryoku Custom.vil
+```
+
+The working thumb order after the layer swap is:
+
+```text
+Left:  LT4(KC_LGUI), KC_BSPACE, LT1(KC_TAB)
+Right: LT5(KC_DELETE), LT3(KC_ENTER), LT2(KC_SPACE)
+```
+
+The base home-row mods in that profile are:
+
+```text
+Left:  LGUI_T(KC_A), LALT_T(KC_S), LCTL_T(KC_D), LSFT_T(KC_F)
+Right: RGUI_T(KC_SCOLON), RALT_T(KC_L), RCTL_T(KC_K), RSFT_T(KC_J)
+```
+
+## Build
+
+Build the right-master UF2 from QMK MSYS or PowerShell with QMK MSYS bash:
+
+```sh
+cd /c/src/qmk-firmware
+make silakka54:vial EXTRAFLAGS=-DMASTER_RIGHT
+cp .build/silakka54_vial.uf2 .build/silakka54_vial_RIGHT.uf2
+cp .build/silakka54_vial.uf2 silakka54_vial_RIGHT.uf2
+```
+
+Flash `silakka54_vial_RIGHT.uf2`. For this build, the right half is the master because the USB cable is plugged into the right side.
+
 # Quantum Mechanical Keyboard Firmware
 
 [![Current Version](https://img.shields.io/github/tag/qmk/qmk_firmware.svg)](https://github.com/qmk/qmk_firmware/tags)

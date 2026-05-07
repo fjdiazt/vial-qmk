@@ -1,4 +1,16 @@
 {
+    "customKeycodes": [
+        {
+            "name": "Toggle Layer LED",
+            "title": "Turn the layer indicator LED on or off.",
+            "shortName": "LYRLED"
+        },
+        {
+            "name": "Toggle Typing LED",
+            "title": "Turn the per-keypress typing feedback LED on or off.",
+            "shortName": "TYPLED"
+        }
+    ],
     "matrix": {
         "rows": 10,
         "cols": 6
