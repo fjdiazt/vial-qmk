@@ -5,9 +5,10 @@ This fork currently carries custom Silakka54/Vial firmware changes for an RP2040
 ## What changed
 
 - Added a one-pixel WS2812/RGBLIGHT LED indicator on `GP16` for the Silakka54 Vial keymap.
+- Configured split RGBLIGHT as one LED per half.
 - Added per-layer LED colors for layers 1-7.
 - Added caps-lock LED indication.
-- Added optional typing/key-press LED feedback that blinks a pseudo-random color on each keypress.
+- Added optional typing/key-press LED feedback that shows a pseudo-random hue on each keypress.
 - Added two Vial custom keycodes so the LED behaviors can be toggled from the keyboard after flashing.
 - Customized tap-hold behavior for home-row mods.
 - Restored 8 dynamic Vial layers for this keymap.
@@ -20,10 +21,13 @@ LED support was adapted from EloyEMC's Silakka54 RP2040-Zero LED indicator work:
 Configured in `keyboards/silakka54/keymaps/vial/config.h`:
 
 ```c
-#define RGBLIGHT_LED_COUNT 1
+#define RGBLIGHT_LED_COUNT 2
+#define RGBLED_SPLIT { 1, 1 }
 #define WS2812_DI_PIN GP16
 #define RGBLIGHT_LAYERS
 ```
+
+`RGBLIGHT_LED_COUNT` is `2` in the actual firmware: one LED on the left half and one LED on the right half. `RGBLED_SPLIT { 1, 1 }` enables split RGBLIGHT synchronization.
 
 Typing feedback is build-time gated:
 
@@ -31,12 +35,17 @@ Typing feedback is build-time gated:
 #define SILAKKA54_KEYPRESS_LED_FEEDBACK 1
 ```
 
-Set that to `0` before building to compile out the per-keypress blink feature. When enabled, the keymap also enables:
+Set that to `0` before building to compile out the per-keypress feedback feature.
+
+LED brightness is split into 1.0-based intensity multipliers:
 
 ```c
-#define RGBLIGHT_LAYER_BLINK
-#define RGBLIGHT_MAX_LAYERS 12
+#define SILAKKA54_LAYER_LED_INTENSITY 0.31372549
+#define SILAKKA54_KEYPRESS_LED_INTENSITY 0.25
+#define SILAKKA54_CAPS_LED_INTENSITY 0.39215686
 ```
+
+Layer and caps defaults match the previous values from this fork: layer `80 / 255`, caps `100 / 255`. Keypress feedback defaults to the old layer value dimmed by 20%: `80 * 0.8 = 64`, or about `0.25` on a `0.0` to `1.0` scale.
 
 ## LED colors
 
@@ -46,25 +55,16 @@ Layer colors:
 
 | Layer | Color | HSV segment |
 | --- | --- | --- |
-| 1 | green | `{0, 1, 85, 255, 80}` |
-| 2 | purple | `{0, 1, 191, 255, 80}` |
-| 3 | cyan | `{0, 1, 128, 255, 80}` |
-| 4 | yellow | `{0, 1, 43, 255, 80}` |
-| 5 | blue | `{0, 1, 170, 255, 80}` |
-| 6 | orange | `{0, 1, 21, 255, 80}` |
-| 7 | magenta | `{0, 1, 213, 255, 80}` |
-| Caps Lock | red | `{0, 1, 0, 255, 100}` |
+| 1 | green | `{0, 2, 85, 255, SILAKKA54_LAYER_LED_VALUE}` |
+| 2 | purple | `{0, 2, 191, 255, SILAKKA54_LAYER_LED_VALUE}` |
+| 3 | cyan | `{0, 2, 128, 255, SILAKKA54_LAYER_LED_VALUE}` |
+| 4 | yellow | `{0, 2, 43, 255, SILAKKA54_LAYER_LED_VALUE}` |
+| 5 | blue | `{0, 2, 170, 255, SILAKKA54_LAYER_LED_VALUE}` |
+| 6 | orange | `{0, 2, 21, 255, SILAKKA54_LAYER_LED_VALUE}` |
+| 7 | magenta | `{0, 2, 213, 255, SILAKKA54_LAYER_LED_VALUE}` |
+| Caps Lock | red | `{0, 2, 0, 255, SILAKKA54_CAPS_LED_VALUE}` |
 
-Typing feedback colors are intentionally separate from the reserved layer colors:
-
-| Feedback slot | HSV segment |
-| --- | --- |
-| 1 | `{0, 1, 234, 128, 70}` |
-| 2 | `{0, 1, 64, 255, 70}` |
-| 3 | `{0, 1, 132, 102, 70}` |
-| 4 | `{0, 1, 11, 176, 70}` |
-
-Typing feedback blinks for 60 ms and picks one of the 4 feedback colors using a small timer/keycode-based pseudo-random seed. It is meant as fun visual feedback, not accurate typing analytics.
+Typing feedback shows a pseudo-random HSV color for 60 ms on the LED for the half where the key was pressed. Left-half keypresses use LED index `0`; right-half keypresses use LED index `1`. It uses full saturation and `SILAKKA54_KEYPRESS_LED_VALUE`. The hue is mixed from a small timer/keycode-based seed, so it can reuse any color, including colors also used for layers. It is meant as fun visual feedback, not accurate typing analytics.
 
 ## Vial custom keycodes
 

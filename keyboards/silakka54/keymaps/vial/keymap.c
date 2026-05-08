@@ -3,33 +3,30 @@
 
 #include QMK_KEYBOARD_H
 #include "qmk_settings.h"
+#include "transactions.h"
 
-#if SILAKKA54_KEYPRESS_LED_FEEDBACK
-#    define CAPS_LOCK_LED_LAYER 11
-#    define KEYPRESS_LED_FIRST_LAYER 7
-#else
-#    define CAPS_LOCK_LED_LAYER 7
-#endif
+#define CAPS_LOCK_LED_LAYER 7
+#define KEYPRESS_LED_DURATION 60
+#define SILAKKA54_LED_COUNT 2
+#define SILAKKA54_LEFT_LED_INDEX 0
+#define SILAKKA54_RIGHT_LED_INDEX 1
+#define SILAKKA54_LAYER_LED_VALUE ((uint8_t)(255 * SILAKKA54_LAYER_LED_INTENSITY))
+#define SILAKKA54_KEYPRESS_LED_VALUE ((uint8_t)(255 * SILAKKA54_KEYPRESS_LED_INTENSITY))
+#define SILAKKA54_CAPS_LED_VALUE ((uint8_t)(255 * SILAKKA54_CAPS_LED_INTENSITY))
 
 enum custom_keycodes {
     LYRLED = QK_KB_0,
     TYPLED
 };
 
-const rgblight_segment_t PROGMEM layer_1_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 85, 255, 80});
-const rgblight_segment_t PROGMEM layer_2_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 191, 255, 80});
-const rgblight_segment_t PROGMEM layer_3_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 128, 255, 80});
-const rgblight_segment_t PROGMEM layer_4_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 43, 255, 80});
-const rgblight_segment_t PROGMEM layer_5_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 170, 255, 80});
-const rgblight_segment_t PROGMEM layer_6_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 21, 255, 80});
-const rgblight_segment_t PROGMEM layer_7_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 213, 255, 80});
-#if SILAKKA54_KEYPRESS_LED_FEEDBACK
-const rgblight_segment_t PROGMEM keypress_1_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 234, 128, 70});
-const rgblight_segment_t PROGMEM keypress_2_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 64, 255, 70});
-const rgblight_segment_t PROGMEM keypress_3_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 132, 102, 70});
-const rgblight_segment_t PROGMEM keypress_4_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 11, 176, 70});
-#endif
-const rgblight_segment_t PROGMEM caps_lock_led[] = RGBLIGHT_LAYER_SEGMENTS({0, 1, 0, 255, 100});
+const rgblight_segment_t PROGMEM layer_1_led[] = RGBLIGHT_LAYER_SEGMENTS({0, SILAKKA54_LED_COUNT, 85, 255, SILAKKA54_LAYER_LED_VALUE});
+const rgblight_segment_t PROGMEM layer_2_led[] = RGBLIGHT_LAYER_SEGMENTS({0, SILAKKA54_LED_COUNT, 191, 255, SILAKKA54_LAYER_LED_VALUE});
+const rgblight_segment_t PROGMEM layer_3_led[] = RGBLIGHT_LAYER_SEGMENTS({0, SILAKKA54_LED_COUNT, 128, 255, SILAKKA54_LAYER_LED_VALUE});
+const rgblight_segment_t PROGMEM layer_4_led[] = RGBLIGHT_LAYER_SEGMENTS({0, SILAKKA54_LED_COUNT, 43, 255, SILAKKA54_LAYER_LED_VALUE});
+const rgblight_segment_t PROGMEM layer_5_led[] = RGBLIGHT_LAYER_SEGMENTS({0, SILAKKA54_LED_COUNT, 170, 255, SILAKKA54_LAYER_LED_VALUE});
+const rgblight_segment_t PROGMEM layer_6_led[] = RGBLIGHT_LAYER_SEGMENTS({0, SILAKKA54_LED_COUNT, 21, 255, SILAKKA54_LAYER_LED_VALUE});
+const rgblight_segment_t PROGMEM layer_7_led[] = RGBLIGHT_LAYER_SEGMENTS({0, SILAKKA54_LED_COUNT, 213, 255, SILAKKA54_LAYER_LED_VALUE});
+const rgblight_segment_t PROGMEM caps_lock_led[] = RGBLIGHT_LAYER_SEGMENTS({0, SILAKKA54_LED_COUNT, 0, 255, SILAKKA54_CAPS_LED_VALUE});
 
 const rgblight_segment_t *const PROGMEM rgb_layers[] = RGBLIGHT_LAYERS_LIST(
     layer_1_led,
@@ -39,20 +36,45 @@ const rgblight_segment_t *const PROGMEM rgb_layers[] = RGBLIGHT_LAYERS_LIST(
     layer_5_led,
     layer_6_led,
     layer_7_led,
-#if SILAKKA54_KEYPRESS_LED_FEEDBACK
-    keypress_1_led,
-    keypress_2_led,
-    keypress_3_led,
-    keypress_4_led,
-#endif
     caps_lock_led
 );
 
 #if SILAKKA54_KEYPRESS_LED_FEEDBACK
 static uint8_t keypress_feedback_seed;
+static bool keypress_feedback_active;
+static uint16_t keypress_feedback_timer;
 #endif
 static bool layer_indicator_enabled = true;
 static bool keypress_feedback_enabled = true;
+
+bool led_update_user(led_t led_state);
+layer_state_t layer_state_set_user(layer_state_t state);
+
+static bool is_left_keypress(keyrecord_t *record) {
+    return record->event.key.row < MATRIX_ROWS / 2;
+}
+
+static uint8_t local_led_index(void) {
+    return is_keyboard_left() ? SILAKKA54_LEFT_LED_INDEX : SILAKKA54_RIGHT_LED_INDEX;
+}
+
+static void refresh_indicator_leds(void) {
+    rgblight_sethsv_noeeprom(HSV_OFF);
+    layer_state_set_user(layer_state);
+    led_update_user(host_keyboard_led_state());
+}
+
+#if SILAKKA54_KEYPRESS_LED_FEEDBACK
+static void show_keypress_feedback(uint8_t hue) {
+    rgblight_sethsv_at(hue, 255, SILAKKA54_KEYPRESS_LED_VALUE, local_led_index());
+    keypress_feedback_timer = timer_read();
+    keypress_feedback_active = true;
+}
+
+static void keypress_led_sync(uint8_t initiator2target_buffer_size, const void *initiator2target_buffer, uint8_t target2initiator_buffer_size, void *target2initiator_buffer) {
+    show_keypress_feedback(*(const uint8_t *)initiator2target_buffer);
+}
+#endif
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -155,6 +177,9 @@ void keyboard_post_init_user(void) {
     rgblight_layers = rgb_layers;
     rgblight_enable_noeeprom();
     rgblight_sethsv_noeeprom(HSV_OFF);
+#if SILAKKA54_KEYPRESS_LED_FEEDBACK
+    transaction_register_rpc(RPC_ID_USER_KEYPRESS_LED, keypress_led_sync);
+#endif
 }
 
 bool led_update_user(led_t led_state) {
@@ -167,14 +192,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         case LYRLED:
             if (record->event.pressed) {
                 layer_indicator_enabled = !layer_indicator_enabled;
-                layer_state_set_user(layer_state);
+                refresh_indicator_leds();
             }
             return false;
         case TYPLED:
 #if SILAKKA54_KEYPRESS_LED_FEEDBACK
             if (record->event.pressed) {
                 keypress_feedback_enabled = !keypress_feedback_enabled;
-                rgblight_unblink_all_but_layer(CAPS_LOCK_LED_LAYER);
+                keypress_feedback_active = false;
+                refresh_indicator_leds();
             }
 #endif
             return false;
@@ -187,13 +213,25 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
 
         keypress_feedback_seed = (keypress_feedback_seed * 17) + (uint8_t)timer_read() + (uint8_t)keycode;
-        rgblight_unblink_all_but_layer(CAPS_LOCK_LED_LAYER);
-        rgblight_blink_layer(KEYPRESS_LED_FIRST_LAYER + (keypress_feedback_seed & 0x03), 60);
+        if (is_left_keypress(record) == is_keyboard_left()) {
+            show_keypress_feedback(keypress_feedback_seed);
+        } else {
+            transaction_rpc_send(RPC_ID_USER_KEYPRESS_LED, sizeof(keypress_feedback_seed), &keypress_feedback_seed);
+        }
     }
 #endif
 
     return true;
 }
+
+#if SILAKKA54_KEYPRESS_LED_FEEDBACK
+void housekeeping_task_user(void) {
+    if (keypress_feedback_active && timer_elapsed(keypress_feedback_timer) > KEYPRESS_LED_DURATION) {
+        keypress_feedback_active = false;
+        refresh_indicator_leds();
+    }
+}
+#endif
 
 layer_state_t layer_state_set_user(layer_state_t state) {
     for (uint8_t i = 0; i < 7; i++) {
